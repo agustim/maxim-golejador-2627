@@ -7,45 +7,47 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - name: Proves d'accés a l'API des del runner
+      - name: Proves d'edges de CloudFront
         run: |
+          set +e
           API="https://www.fcf.cat/api/competition/grupos?competicioId=58161949"
           CHROME_UA="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
+          H=(-A "$CHROME_UA" -H "Accept: application/json" -H "Referer: https://www.fcf.cat/")
 
-          echo "--- A: Chrome UA, capçaleres del 403 ---"
-          curl -s -D - -o /dev/null --max-time 20 -A "$CHROME_UA" -H "Accept: application/json" -H "Referer: https://www.fcf.cat/" "$API" | head -20
+          echo "--- edge actual del runner ---"
+          getent ahosts www.fcf.cat | head -3
+          curl -s -D - -o /dev/null --max-time 20 "${H[@]}" "$API" 2>/dev/null | grep -iE "x-amz-cf-pop|x-cache"
 
-          echo "--- B: sense UA (curl per defecte) ---"
-          curl -s -o /dev/null -w "code=%{http_code}\n" --max-time 20 "$API"
+          echo "--- IPs d'edge CloudFront de la UE (mostra) ---"
+          curl -s --max-time 30 https://ip-ranges.amazonaws.com/cloudfront.json -o cf.json
+          python3 - <<'PY'
+import json
+d=json.load(open('cf.json'))
+ue=[p['ip_prefix'] for p in d['prefixes'] if p.get('region','').startswith('eu-') and p.get('service')=='CLOUDFRONT']
+print('totalIPsUE:', len(ue))
+for ip in ue[:8]:
+    base=ip.split('/')[0]
+    print(base)
+PY
 
-          echo "--- C: UA Googlebot ---"
-          curl -s -o /dev/null -w "code=%{http_code}\n" --max-time 20 -A "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)" "$API"
+          echo "--- proves --resolve amb IPs UE sense /32 ---"
+          for IP in 99.84.193.1 13.32.200.1 18.65.100.1 52.84.100.1 143.204.50.1; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 20 --resolve www.fcf.cat:443:$IP "${H[@]}" -H "Host: www.fcf.cat" "$API")
+            echo "IP $IP -> $code"
+          done
 
-          echo "--- D: emulació completa de navegador ---"
-          curl -s -o /dev/null -w "code=%{http_code}\n" --max-time 20 -A "$CHROME_UA" \
-            -H "Accept: application/json, text/plain, */*" \
-            -H "Accept-Language: ca,es;q=0.9" \
-            -H "Accept-Encoding: gzip, deflate, br" \
-            -H "Origin: https://www.fcf.cat" \
-            -H "Referer: https://www.fcf.cat/es/competicio" \
-            -H "sec-ch-ua: \"Not/A)Brand\";v=\"8\", \"Chromium\";v=\"126\", \"Google Chrome\";v=\"126\"" \
-            -H "sec-ch-ua-mobile: ?0" \
-            -H "sec-ch-ua-platform: \"Linux\"" \
-            -H "Sec-Fetch-Dest: empty" -H "Sec-Fetch-Mode: cors" -H "Sec-Fetch-Site: same-origin" \
-            -H "X-Requested-With: XMLHttpRequest" \
-            "$API"
+          echo "--- prova a traves del CNAME cloudfront directe ---"
+          CNAME=$(getent ahosts www.fcf.cat | awk '{print $1}' | head -1)
+          echo "IP resolta: $CNAME"
 
-          echo "--- E: sense www (segueix redirect) ---"
-          curl -s -o /dev/null -w "code=%{http_code}\n" --max-time 20 -A "$CHROME_UA" -L "https://fcf.cat/api/competition/grupos?competicioId=58161949"
+          echo "--- prova amb Host alternatiu: dXXX.cloudfront.net ---"
+          curl -s -o /dev/null -w "code=%{http_code}\n" --max-time 20 "${H[@]}" "https://www.fcf.cat/_next/static/chunks/turbopack-34252f36fa1f5ac8.js"
 
-          echo "--- F: barra final ---"
-          curl -s -o /dev/null -w "code=%{http_code}\n" --max-time 20 -A "$CHROME_UA" "https://www.fcf.cat/api/competition/grupos/?competicioId=58161949"
+          echo "--- prova thingproxy ---"
+          curl -s -o /dev/null -w "code=%{http_code}\n" --max-time 30 "https://thingproxy.freeboard.io/fetch/https://www.fcf.cat/api/competition/grupos?competicioId=58161949" || true
 
-          echo "--- G: HTML de control ---"
-          curl -s -o /dev/null -w "code=%{http_code}\n" --max-time 20 -A "$CHROME_UA" "https://www.fcf.cat/es/competicio?temporadaId=22&disciplinaId=19308233&competicioId=58161949&grupId=58161973&tab=gols"
+          echo "--- prova cors.eu.org ---"
+          curl -s -o /dev/null -w "code=%{http_code}\n" --max-time 30 "https://cors.eu.org/https://www.fcf.cat/api/competition/grupos?competicioId=58161949" || true
 
-          echo "--- H: via thingproxy ---"
-          curl -s -o /dev/null -w "code=%{http_code}\n" --max-time 30 "https://thingproxy.freeboard.io/fetch/$API"
-
-          echo "--- I: via crbp / cors.eu.org ---"
-          curl -s -o /dev/null -w "code=%{http_code}\n" --max-time 30 "https://cors.eu.org/$API"
+          echo "--- prova proxy.cors.sh (sense clau) ---"
+          curl -s -o /dev/null -w "code=%{http_code}\n" --max-time 30 "https://proxy.cors.sh/https://www.fcf.cat/api/competition/grupos?competicioId=58161949" || true
