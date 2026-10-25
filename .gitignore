@@ -2,5 +2,6 @@ node_modules/
 dist/
 .vite/
 .npm-cache/
+.gh-cache/
 *.tsbuildinfo
 .DS_Store

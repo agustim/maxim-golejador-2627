@@ -17,8 +17,13 @@ l'API de la FCF, genera el site i el desplega.
   jugats i gols per partit.
 - **Configurable**: pots indicar quins grups vols que apareguin (els jugadors de la resta de
   grups queden fora del lloc).
-- **Robust**: si l'API de la FCF falla (CloudFront retorna 403 intermitents), es mantenen
-  les dades de l'últim snapshot i el build continua.
+- **Robust**: si l'API de la FCF falla (l'origen retorna 403/502 de manera intermitent), es
+  mantenen les dades de l'últim snapshot i el build continua sense aturar-se. Si la llista
+  de grups no es pot obtenir, es reutilitza la del snapshot anterior per intentar
+  actualitzar igualment els golejadors.
+- **Snapshot actualitzat**: el workflow commiteja `src/data/scorers.json` al repositori
+  quan les dades canvien, de manera que el snapshot (la xarxa de seguretat) sempre està tan
+  fresc com l'última generació correcta.
 
 ## Com funciona
 

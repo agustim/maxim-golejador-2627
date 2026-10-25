@@ -15,8 +15,12 @@ export const FCF_HEADERS = {
   Referer: `${BASE_URL}/`,
 } as const;
 
-/** Retards entre reintents (ms). L'índex es limita al darrer valor. */
-const BACKOFF_MS = [2_000, 4_000, 8_000, 16_000, 32_000];
+/**
+ * Retards entre reintents (ms). L'origen de la FCF respon 403/502 de manera
+ * intermitent (CloudFront no connecta amb el backend); s'espera prou temps
+ * (~6 minuts en total) abans de donar-ho per perdut.
+ */
+const BACKOFF_MS = [3_000, 6_000, 10_000, 20_000, 35_000, 60_000, 90_000, 120_000];
 
 export class ApiError extends Error {
   readonly status: number | undefined;
@@ -29,7 +33,7 @@ export class ApiError extends Error {
 }
 
 export interface FcfApiOptions {
-  /** Nombre màxim de reintents després del primer intent. Per defecte 5. */
+  /** Nombre màxim de reintents després del primer intent. Per defecte 8. */
   retries?: number;
   /** Temps límit de cada intent (ms). Per defecte 20 s. */
   timeoutMs?: number;
@@ -37,11 +41,11 @@ export interface FcfApiOptions {
 
 /**
  * Fa una petició GET a `https://www.fcf.cat/api/competition/<path>` i retorna el JSON.
- * Reintenta en cas d'error de xarxa, timeout o 403/429/5xx.
+ * Reintenta en cas d'error de xarxa, timeout o 4xx/5xx intermitents (403/429/5xx).
  */
 export async function fcfApi<T>(
   path: string,
-  { retries = 5, timeoutMs = 20_000 }: FcfApiOptions = {},
+  { retries = 8, timeoutMs = 20_000 }: FcfApiOptions = {},
 ): Promise<T> {
   const url = `${BASE_URL}/api/competition/${path}`;
   let lastError: unknown;

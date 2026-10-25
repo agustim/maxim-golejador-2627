@@ -60,20 +60,42 @@ async function carregarSnapshotAnterior(): Promise<Map<string, GrupData>> {
 async function main(): Promise<void> {
   console.log(`Descarregant competició ${COMPETICIO_NOM} (${COMPETICIO_ID}) · temporada ${TEMPORADA_NOM} (${TEMPORADA})`);
 
-  const grupsApi = await fcfApi<ApiGrup[]>(`grupos?competicioId=${COMPETICIO_ID}`);
-  if (!Array.isArray(grupsApi) || grupsApi.length === 0) {
-    console.error(`[fetch] L'API no ha retornat cap grup per a competicioId=${COMPETICIO_ID}.`);
-    process.exit(1);
+  const snapshot = await carregarSnapshotAnterior();
+
+  // 1) Resolució de la llista de grups. Si l'API de grups falla (l'origen de la
+  //    FCF és intermitent), es reutilitza la llista de l'últim snapshot perquè
+  //    els golejadors de cada grup es puguin continuar actualitzant.
+  let grups: GrupNode[];
+  let grupsDesDeSnapshot = false;
+  try {
+    const grupsApi = await fcfApi<ApiGrup[]>(`grupos?competicioId=${COMPETICIO_ID}`);
+    if (!Array.isArray(grupsApi) || grupsApi.length === 0) {
+      throw new Error('L’API no ha retornat cap grup.');
+    }
+    grups = [];
+    for (const node of grupsApi) {
+      const numero = extreureNumeroGrup(node.label);
+      if (numero === null) {
+        console.warn(`[fetch] Etiqueta de grup no reconeguda, s'omet: "${node.label}"`);
+        continue;
+      }
+      grups.push({ grupId: node.value, label: node.label, numero });
+    }
+  } catch (error) {
+    console.warn(
+      `[fetch] No s'ha pogut obtenir la llista de grups (${error instanceof Error ? error.message : error}); s'usa la llista del snapshot anterior.`,
+    );
+    grups = [...snapshot.values()].map((g) => ({
+      grupId: g.grupId,
+      label: g.label,
+      numero: g.numero,
+    }));
+    grupsDesDeSnapshot = true;
   }
 
-  const grups: GrupNode[] = [];
-  for (const node of grupsApi) {
-    const numero = extreureNumeroGrup(node.label);
-    if (numero === null) {
-      console.warn(`[fetch] Etiqueta de grup no reconeguda, s'omet: "${node.label}"`);
-      continue;
-    }
-    grups.push({ grupId: node.value, label: node.label, numero });
+  if (grups.length === 0) {
+    console.error(`[fetch] Sense llista de grups (API i snapshot buit) per a competicioId=${COMPETICIO_ID}.`);
+    process.exit(1);
   }
 
   let seleccionats: GrupNode[];
@@ -86,11 +108,10 @@ async function main(): Promise<void> {
   seleccionats.sort((a, b) => a.numero - b.numero);
 
   console.log(
-    `Grups disponibles: ${grups.length} · grups seleccionats: ${seleccionats.length} · màxim golejadors per grup: ${MAX_GOLEJADORS_PER_GRUP}`,
+    `Grups disponibles: ${grups.length}${grupsDesDeSnapshot ? ' (del snapshot)' : ''} · grups seleccionats: ${seleccionats.length} · màxim golejadors per grup: ${MAX_GOLEJADORS_PER_GRUP}`,
   );
   console.log('Grups: ' + (seleccionats.map((g) => g.numero).join(', ') || '(cap)'));
 
-  const snapshot = await carregarSnapshotAnterior();
   const resultats: Omit<FitxerDades, 'actualitzat'> = {
     temporada: TEMPORADA,
     temporadaNom: TEMPORADA_NOM,
