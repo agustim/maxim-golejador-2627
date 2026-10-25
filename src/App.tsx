@@ -1,10 +1,7 @@
-import { Route, Routes } from 'react-router-dom';
 import { COMPETICIO_NOM, DISCIPLINA_NOM, TEMPORADA_NOM } from './config';
-import { DADES, GRUPS } from './data';
-import GroupTabs from './components/GroupTabs';
+import { DADES } from './data';
 import UpdateBanner from './components/UpdateBanner';
 import HomePage from './pages/HomePage';
-import GroupPage from './pages/GroupPage';
 
 export default function App() {
   return (
@@ -19,20 +16,17 @@ export default function App() {
         </div>
       </header>
 
-      <GroupTabs grups={GRUPS} />
-
       <main className="site-main">
-        <Routes>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/grup/:num" element={<GroupPage />} />
-          <Route path="*" element={<HomePage />} />
-        </Routes>
+        <HomePage />
       </main>
 
       <footer className="site-footer">
         <p>
-          Dades oficials de la <a href="https://www.fcf.cat" target="_blank" rel="noreferrer">Federació Catalana de Futbol</a> ·{' '}
-          {DADES.competicio} · {DADES.temporadaNom}
+          Dades oficials de la{' '}
+          <a href="https://www.fcf.cat" target="_blank" rel="noreferrer">
+            Federació Catalana de Futbol
+          </a>{' '}
+          · {DADES.competicio} · {DADES.temporadaNom}
         </p>
       </footer>
     </div>

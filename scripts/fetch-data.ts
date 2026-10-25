@@ -4,9 +4,10 @@
  *
  * - Resol els grupId dinàmicament des de l'API (cap ID no està hardcoded).
  * - Si GRUPS_INCLOSOS és una llista, només es descarreguen aquests grups.
- * - Si una crida falla després de tots els reintents, es conserven les dades
- *   de l'últim snapshot per a aquell grup (el build mai no s'atura per un
- *   ídem de la FCF).
+ * - Cada grup es processa amb concurrència limitada (els 403 de CloudFront
+ *   arriben de pressa; la pèrdua de temps és esperar reintents llargs).
+ * - Si un grup falla, es conserven les dades de l'últim snapshot; el build
+ *   no s'atura mai per un 403 de la FCF.
  *
  * Ús: npm run fetch
  */
@@ -33,19 +34,24 @@ import {
   type ApiGrup,
 } from '../src/lib/api-mapping';
 import type { FitxerDades, GrupData } from '../src/types';
-import { fcfApi, sleep } from './fcf-client';
+import { fcfApi } from './fcf-client';
 
 const arrel = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const DATA_PATH = path.join(arrel, 'src', 'data', 'scorers.json');
 
-/** Pausa entre grups per no saturar CloudFront (els 403 apareixen en ràfegues). */
-const PAUSA_MS = 300;
+/** Grups processats en paral·lel (CloudFront no es queixa de poques connexions). */
+const CONCURRENCIA = 6;
 
 interface GrupNode {
   grupId: string;
   label: string;
   numero: number;
 }
+
+type ResultatGrup =
+  | { estat: 'ok'; grup: GrupData }
+  | { estat: 'snapshot'; grup: GrupData }
+  | { estat: 'sense_dades'; label: string };
 
 async function carregarSnapshotAnterior(): Promise<Map<string, GrupData>> {
   try {
@@ -57,14 +63,70 @@ async function carregarSnapshotAnterior(): Promise<Map<string, GrupData>> {
   }
 }
 
+/** Processa un grup: descarrega golejadors + equips i construeix les dades. */
+async function processarGrup(
+  grup: GrupNode,
+  snapshot: Map<string, GrupData>,
+): Promise<ResultatGrup> {
+  try {
+    const [golejadores, equips] = await Promise.all([
+      fcfApi<ApiGolejador[]>(`goleadores?grupId=${grup.grupId}&temporada=${TEMPORADA}`),
+      fcfApi<ApiEquip[]>(`equipos?grupId=${grup.grupId}`),
+    ]);
+
+    const equipNoms = mapEquips(Array.isArray(equips) ? equips : []);
+    const golejadors = mapGolejadors(
+      Array.isArray(golejadores) ? golejadores : [],
+      grup.numero,
+      grup.label,
+      equipNoms,
+      MAX_GOLEJADORS_PER_GRUP,
+    );
+
+    return {
+      estat: 'ok',
+      grup: { numero: grup.numero, grupId: grup.grupId, label: grup.label, golejadors },
+    };
+  } catch (error) {
+    const anterior = snapshot.get(grup.grupId);
+    if (anterior) {
+      return { estat: 'snapshot', grup: anterior };
+    }
+    return { estat: 'sense_dades', label: grup.label };
+  }
+}
+
+/** Executa `fn` sobre `items` amb un màxim de `limit` tasques en paral·lel. */
+async function mapAmbConcurrencia<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T, index: number) => Promise<R>,
+): Promise<R[]> {
+  const resultats = new Array<R>(items.length);
+  let seguent = 0;
+
+  async function treballador(): Promise<void> {
+    while (seguent < items.length) {
+      const index = seguent;
+      seguent += 1;
+      resultats[index] = await fn(items[index], index);
+    }
+  }
+
+  await Promise.all(
+    Array.from({ length: Math.max(1, Math.min(limit, items.length)) }, () => treballador()),
+  );
+  return resultats;
+}
+
 async function main(): Promise<void> {
   console.log(`Descarregant competició ${COMPETICIO_NOM} (${COMPETICIO_ID}) · temporada ${TEMPORADA_NOM} (${TEMPORADA})`);
 
   const snapshot = await carregarSnapshotAnterior();
 
-  // 1) Resolució de la llista de grups. Si l'API de grups falla (l'origen de la
-  //    FCF és intermitent), es reutilitza la llista de l'últim snapshot perquè
-  //    els golejadors de cada grup es puguin continuar actualitzant.
+  // 1) Resolució de la llista de grups. Si la llista no es pot obtenir, es
+  //    reutilitza la del snapshot perquè els golejadors es puguin continuar
+  //    intentant actualitzar.
   let grups: GrupNode[];
   let grupsDesDeSnapshot = false;
   try {
@@ -83,7 +145,7 @@ async function main(): Promise<void> {
     }
   } catch (error) {
     console.warn(
-      `[fetch] No s'ha pogut obtenir la llista de grups (${error instanceof Error ? error.message : error}); s'usa la llista del snapshot anterior.`,
+      `[fetch] No s'ha pogut obtenir la llista de grups (${error instanceof Error ? error.message : error}); s'usa la del snapshot anterior.`,
     );
     grups = [...snapshot.values()].map((g) => ({
       grupId: g.grupId,
@@ -108,91 +170,61 @@ async function main(): Promise<void> {
   seleccionats.sort((a, b) => a.numero - b.numero);
 
   console.log(
-    `Grups disponibles: ${grups.length}${grupsDesDeSnapshot ? ' (del snapshot)' : ''} · grups seleccionats: ${seleccionats.length} · màxim golejadors per grup: ${MAX_GOLEJADORS_PER_GRUP}`,
+    `Grups disponibles: ${grups.length}${grupsDesDeSnapshot ? ' (del snapshot)' : ''} · seleccionats: ${seleccionats.length} · màxim golejadors per grup: ${MAX_GOLEJADORS_PER_GRUP}`,
   );
   console.log('Grups: ' + (seleccionats.map((g) => g.numero).join(', ') || '(cap)'));
 
-  const resultats: Omit<FitxerDades, 'actualitzat'> = {
-    temporada: TEMPORADA,
-    temporadaNom: TEMPORADA_NOM,
-    competicio: COMPETICIO_NOM,
-    disciplina: DISCIPLINA_NOM,
-    grups: [],
-  };
+  const resultats = await mapAmbConcurrencia(seleccionats, CONCURRENCIA, async (grup) => {
+    const resultat = await processarGrup(grup, snapshot);
+    const detall =
+      resultat.estat === 'ok'
+        ? `${resultat.grup.golejadors.length} golejadors`
+        : resultat.estat === 'snapshot'
+          ? "dades de l'últim snapshot (FCF inaccessible)"
+          : 'sense dades prèvies (s’omet)';
+    console.log(`[${grup.numero}] ${grup.label} (${grup.grupId}): ${detall}`);
+    return resultat;
+  });
 
-  let totalGolejadors = 0;
-  let ok = 0;
-  const fallides: string[] = [];
-  const desactualitzats: string[] = [];
+  const grupsOk = resultats
+    .filter((r): r is Extract<ResultatGrup, { estat: 'ok' }> => r.estat === 'ok')
+    .map((r) => r.grup);
+  const grupsSnapshot = resultats.filter((r) => r.estat === 'snapshot').map((r) => r.grup);
+  const senseDades = resultats
+    .filter((r) => r.estat === 'sense_dades')
+    .map((r) => r.label);
 
-  for (const [index, grup] of seleccionats.entries()) {
-    const prefix = `[${index + 1}/${seleccionats.length}]`;
+  const totsGrups = [...grupsOk, ...grupsSnapshot].sort((a, b) => a.numero - b.numero);
 
-    try {
-      const [golejadores, equips] = await Promise.all([
-        fcfApi<ApiGolejador[]>(`goleadores?grupId=${grup.grupId}&temporada=${TEMPORADA}`),
-        fcfApi<ApiEquip[]>(`equipos?grupId=${grup.grupId}`),
-      ]);
-
-      const equipNoms = mapEquips(Array.isArray(equips) ? equips : []);
-      const golejadors = mapGolejadors(
-        Array.isArray(golejadores) ? golejadores : [],
-        grup.numero,
-        grup.label,
-        equipNoms,
-        MAX_GOLEJADORS_PER_GRUP,
-      );
-
-      resultats.grups.push({
-        numero: grup.numero,
-        grupId: grup.grupId,
-        label: grup.label,
-        golejadors,
-      });
-      totalGolejadors += golejadors.length;
-      ok += 1;
-      console.log(`${prefix} ${grup.label} (${grup.grupId}): ${golejadors.length} golejadors`);
-    } catch (error) {
-      const anterior = snapshot.get(grup.grupId);
-      if (anterior) {
-        resultats.grups.push(anterior);
-        desactualitzats.push(grup.label);
-        console.warn(
-          `${prefix} ${grup.label}: fallida (${error instanceof Error ? error.message : error}), es conserven les dades anteriors (${anterior.golejadors.length} golejadors)`,
-        );
-      } else {
-        fallides.push(grup.label);
-        console.warn(`${prefix} ${grup.label}: fallida i sense dades prèvies, s'omet.`);
-      }
-    }
-
-    if (index < seleccionats.length - 1) await sleep(PAUSA_MS);
-  }
-
-  resultats.grups.sort((a, b) => a.numero - b.numero);
-
-  if (resultats.grups.length === 0) {
+  if (totsGrups.length === 0) {
     console.error('[fetch] Cap grup descarregat i sense dades prèvies.');
     process.exit(1);
   }
 
   const dades: FitxerDades = {
-    ...resultats,
+    temporada: TEMPORADA,
+    temporadaNom: TEMPORADA_NOM,
+    competicio: COMPETICIO_NOM,
+    disciplina: DISCIPLINA_NOM,
     actualitzat: new Date().toISOString(),
+    grups: totsGrups,
   };
 
   await writeFile(DATA_PATH, JSON.stringify(dades, null, 2), 'utf8');
 
+  const totalGolejadors = totsGrups.reduce((suma, g) => suma + g.golejadors.length, 0);
   console.log('---');
-  console.log(`Fet: ${ok}/${seleccionats.length} grups actualitzats · ${totalGolejadors} golejadors.`);
-  if (desactualitzats.length > 0) {
-    console.log(`Grups amb dades de l'últim snapshot: ${desactualitzats.join(', ')}`);
+  console.log(
+    `Fet: ${grupsOk.length}/${seleccionats.length} grups actualitzats · ${totalGolejadors} golejadors en total.`,
+  );
+  if (grupsSnapshot.length > 0) {
+    console.log(`Grups amb dades de l'últim snapshot: ${grupsSnapshot.map((g) => g.label).join(', ')}`);
   }
-  if (fallides.length > 0) {
-    console.log(`Grups sense cap dada: ${fallides.join(', ')}`);
+  if (senseDades.length > 0) {
+    console.log(`Grups sense cap dada: ${senseDades.join(', ')}`);
   }
   console.log(`Fitxer generat: ${DATA_PATH}`);
-  console.log("Per canviar els grups mostrats, edita GRUPS_INCLOSOS a src/config.ts.");
+  console.log('Per canviar els grups mostrats, edita GRUPS_INCLOSOS a src/config.ts.');
 }
 
 main().catch((error) => {

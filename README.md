@@ -10,17 +10,21 @@ l'API de la FCF, genera el site i el desplega.
 
 ## Funcionalitats
 
-- **Rànquing combinat**: tots els golejadors de tots els grups seleccionats, ordenats per gols.
-- **Una pàgina per grup**: `/#/grup/8`, `/#/grup/9`, … amb el rànquing oficial de cada grup.
-- **Pestanyes de navegació** per a cada grup inclòs.
+- **Selecció múltiple de grups**: pots marcar i combinar diversos grups alhora
+  (per exemple, selecciona el Grup 8 i després el Grup 9: tots dos queden
+  seleccionats i la llista mostra els golejadors dels dos grups junts). La
+  selecció es reflecteix a l’URL (`#/?grups=8,9`) i es pot compartir.
+- **Rànquing combinat**: els golejadors dels grups seleccionats, ordenats per gols,
+  amb la columna «Grup» per saber d'on surt cada jugador.
+- Botons ràpids **Tots** i **Cap** per seleccionar-ho tot o res.
 - Per golejador: posició, nom, equip (amb escut), gols (amb indicació de penals), partits
   jugats i gols per partit.
 - **Configurable**: pots indicar quins grups vols que apareguin (els jugadors de la resta de
   grups queden fora del lloc).
-- **Robust**: si l'API de la FCF falla (l'origen retorna 403/502 de manera intermitent), es
-  mantenen les dades de l'últim snapshot i el build continua sense aturar-se. Si la llista
-  de grups no es pot obtenir, es reutilitza la del snapshot anterior per intentar
-  actualitzar igualment els golejadors.
+- **Robust**: si l'API de la FCF falla (l'origen retorna 403/502 de manera intermitent des
+  d'IPs de centres de dades), es mantenen les dades de l'últim snapshot i el build continua
+  sense aturar-se. Si la llista de grups no es pot obtenir, es reutilitza la del snapshot
+  anterior per intentar actualitzar igualment els golejadors.
 - **Snapshot actualitzat**: el workflow commiteja `src/data/scorers.json` al repositori
   quan les dades canvien, de manera que el snapshot (la xarxa de seguretat) sempre està tan
   fresc com l'última generació correcta.
@@ -94,22 +98,27 @@ La web es publica a `https://<usuari>.github.io/maxim-golejador-2627/`.
 
 - **Font**: API interna de `https://www.fcf.cat` (`/api/competition/goleadores?grupId=…&temporada=22`,
   `/api/competition/equipos?grupId=…`). No és una API documentada, pot canviar.
+- **403 des de centres de dades**: CloudFront de la FCF retorna «Error from cloudfront»
+  quan les peticions venen d'IPs de centres de dades (com les de GitHub Actions), mentre
+  que des de connexions residencials (la teva) funciona. El fetcher intenta primer la via
+  directa i després un proxy públic (r.jina.ai); si tot falla, fa servir l'últim snapshot i
+  l'acció **mai no falla**. Per forçar l'actualització manual: executa `npm run fetch` al
+  teu ordinador i fes `git push` (el push publica automàticament el build amb les dades
+  noves).
 - L'API retorna com a molt **50 golejadors per grup** (és el que mostra la web oficial).
 - Els noms dels equips es resolen amb l'endpoint `equipos`; si no es troba un equip, es mostra
   «Equip desconegut».
 - Els escuts s'enllacen directament des de `files.fcf.cat`; si un escut falla, es mostra una
   insígnia amb les inicials de l'equip.
-- Si una crida falla després de 5 reintents (backoff de 2 a 32 segons), es conserven les
-  dades antigues d'aquell grup i el build no s'atura.
 
 ## Estructura
 
 ```
-scripts/            # fetcher de la FCF (retries, capçaleres de navegador, filtre de grups)
+scripts/            # fetcher de la FCF (capçaleres de navegador, reintents ràpids, filtre de grups)
 src/config.ts       # configuració de temporada, competició i grups
 src/data/scorers.json  # snapshot generat per npm run fetch
 src/lib/            # lògica pura (rànquings, mapeig, filtres) + tests
-src/components/     # taules, pestanyes, cel·les d'equip, banner d'actualització
-src/pages/          # pàgina combinada i pàgines per grup
+src/components/     # taules, selector de grups, cel·les d'equip, banner d'actualització
+src/pages/          # pàgina principal amb rànquing combinat i selecció múltiple de grups
 .github/workflows/  # workflow diari de build + publicació a GitHub Pages
 ```
