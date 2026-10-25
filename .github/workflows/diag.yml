@@ -7,32 +7,25 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - name: Proves d'edges de CloudFront
+      - name: Proves de capçaleres X-Forwarded-For
         run: |
           set +e
-          API="https://www.fcf.cat/api/competition/grupos?competicioId=58161949"
+          BASE="https://www.fcf.cat/api/competition/grupos?competicioId=58161949"
           CHROME_UA="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
-          H=(-A "$CHROME_UA" -H "Accept: application/json" -H "Referer: https://www.fcf.cat/")
 
-          echo "--- edge actual del runner ---"
-          getent ahosts www.fcf.cat | head -3
-          curl -s -D - -o /dev/null --max-time 20 "${H[@]}" "$API" 2>/dev/null | grep -iE "x-amz-cf-pop|x-cache"
+          probe() {
+            label="$1"; shift
+            url="$BASE&nb=$RANDOM$RANDOM"
+            code=$(curl -s -o /tmp/body.txt -w "%{http_code}" --max-time 20 -A "$CHROME_UA" -H "Accept: application/json" -H "Referer: https://www.fcf.cat/" "$@" "$url")
+            first=$(head -c 60 /tmp/body.txt | tr -d '\n')
+            echo "$label -> $code | $first"
+          }
 
-          echo "--- IPs d'edge CloudFront de la UE (mostra) ---"
-          curl -s --max-time 30 https://ip-ranges.amazonaws.com/cloudfront.json -o cf.json
-          python3 -c "import json;d=json.load(open('cf.json'));ue=[p['ip_prefix'] for p in d.get('prefixes',[]) if p.get('region','').startswith('eu-') and p.get('service')=='CLOUDFRONT'];print('totalIPsUE:',len(ue));[print(i.split('/')[0]) for i in ue[:8]]" 2>&1 | head -12
-
-          echo "--- proves --resolve amb IPs d'edge (CloudFront) ---"
-          for IP in 99.84.193.1 13.32.200.1 18.65.100.1 52.84.100.1 143.204.50.1 99.84.203.1; do
-            code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 20 --resolve www.fcf.cat:443:$IP "${H[@]}" "$API")
-            echo "IP $IP -> $code"
-          done
-
-          echo "--- prova thingproxy ---"
-          curl -s -o /dev/null -w "code=%{http_code}\n" --max-time 30 "https://thingproxy.freeboard.io/fetch/https://www.fcf.cat/api/competition/grupos?competicioId=58161949" || true
-
-          echo "--- prova cors.eu.org ---"
-          curl -s -o /dev/null -w "code=%{http_code}\n" --max-time 30 "https://cors.eu.org/https://www.fcf.cat/api/competition/grupos?competicioId=58161949" || true
-
-          echo "--- prova proxy.cors.sh ---"
-          curl -s -o /dev/null -w "code=%{http_code}\n" --max-time 30 "https://proxy.cors.sh/https://www.fcf.cat/api/competition/grupos?competicioId=58161949" || true
+          probe "control (sense XFF)"
+          probe "XFF=79.154.187.152 (IP residencial)" -H "X-Forwarded-For: 79.154.187.152"
+          probe "XFF=84.120.0.1 (random)" -H "X-Forwarded-For: 84.120.0.1"
+          probe "XFF=1.2.3.4 (random)" -H "X-Forwarded-For: 1.2.3.4"
+          probe "XFF multi (meu, azure)" -H "X-Forwarded-For: 79.154.187.152, 20.190.2.1, 13.107.0.1"
+          probe "Forwarded: for=meu" -H "Forwarded: for=79.154.187.152"
+          probe "X-Real-IP: meu" -H "X-Real-IP: 79.154.187.152"
+          probe "CF-Connecting-IP: meu" -H "CF-Connecting-IP: 79.154.187.152"
