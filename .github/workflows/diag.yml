@@ -20,28 +20,13 @@ jobs:
 
           echo "--- IPs d'edge CloudFront de la UE (mostra) ---"
           curl -s --max-time 30 https://ip-ranges.amazonaws.com/cloudfront.json -o cf.json
-          python3 - <<'PY'
-import json
-d=json.load(open('cf.json'))
-ue=[p['ip_prefix'] for p in d['prefixes'] if p.get('region','').startswith('eu-') and p.get('service')=='CLOUDFRONT']
-print('totalIPsUE:', len(ue))
-for ip in ue[:8]:
-    base=ip.split('/')[0]
-    print(base)
-PY
+          python3 -c "import json;d=json.load(open('cf.json'));ue=[p['ip_prefix'] for p in d.get('prefixes',[]) if p.get('region','').startswith('eu-') and p.get('service')=='CLOUDFRONT'];print('totalIPsUE:',len(ue));[print(i.split('/')[0]) for i in ue[:8]]" 2>&1 | head -12
 
-          echo "--- proves --resolve amb IPs UE sense /32 ---"
-          for IP in 99.84.193.1 13.32.200.1 18.65.100.1 52.84.100.1 143.204.50.1; do
-            code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 20 --resolve www.fcf.cat:443:$IP "${H[@]}" -H "Host: www.fcf.cat" "$API")
+          echo "--- proves --resolve amb IPs d'edge (CloudFront) ---"
+          for IP in 99.84.193.1 13.32.200.1 18.65.100.1 52.84.100.1 143.204.50.1 99.84.203.1; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 20 --resolve www.fcf.cat:443:$IP "${H[@]}" "$API")
             echo "IP $IP -> $code"
           done
-
-          echo "--- prova a traves del CNAME cloudfront directe ---"
-          CNAME=$(getent ahosts www.fcf.cat | awk '{print $1}' | head -1)
-          echo "IP resolta: $CNAME"
-
-          echo "--- prova amb Host alternatiu: dXXX.cloudfront.net ---"
-          curl -s -o /dev/null -w "code=%{http_code}\n" --max-time 20 "${H[@]}" "https://www.fcf.cat/_next/static/chunks/turbopack-34252f36fa1f5ac8.js"
 
           echo "--- prova thingproxy ---"
           curl -s -o /dev/null -w "code=%{http_code}\n" --max-time 30 "https://thingproxy.freeboard.io/fetch/https://www.fcf.cat/api/competition/grupos?competicioId=58161949" || true
@@ -49,5 +34,5 @@ PY
           echo "--- prova cors.eu.org ---"
           curl -s -o /dev/null -w "code=%{http_code}\n" --max-time 30 "https://cors.eu.org/https://www.fcf.cat/api/competition/grupos?competicioId=58161949" || true
 
-          echo "--- prova proxy.cors.sh (sense clau) ---"
+          echo "--- prova proxy.cors.sh ---"
           curl -s -o /dev/null -w "code=%{http_code}\n" --max-time 30 "https://proxy.cors.sh/https://www.fcf.cat/api/competition/grupos?competicioId=58161949" || true
