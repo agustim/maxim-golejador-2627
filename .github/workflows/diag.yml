@@ -1,0 +1,30 @@
+name: Diagnòstic FCF (temporal)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Prova directa a l'API
+        run: |
+          curl -sS -o /tmp/r.txt -w 'STATUS_DIRECT=%{http_code}\n' \
+            -A "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36" \
+            -H "Accept: application/json" \
+            -H "Referer: https://www.fcf.cat/" \
+            "https://www.fcf.cat/api/competition/grupos?competicioId=58161949"
+          head -c 250 /tmp/r.txt || true
+          echo
+      - name: Prova via r.jina.ai
+        run: |
+          curl -sS -o /tmp/r2.txt -w 'STATUS_JINA=%{http_code}\n' \
+            "https://r.jina.ai/https://www.fcf.cat/api/competition/grupos?competicioId=58161949"
+          head -c 400 /tmp/r2.txt || true
+          echo
+      - name: Prova via allorigins
+        run: |
+          curl -sS -o /tmp/r3.txt -w 'STATUS_ALLORIGINS=%{http_code}\n' --max-time 60 \
+            "https://api.allorigins.win/raw?url=https%3A%2F%2Fwww.fcf.cat%2Fapi%2Fcompetition%2Fgrupos%3FcompeticioId%3D58161949"
+          head -c 250 /tmp/r3.txt || true
+          echo
