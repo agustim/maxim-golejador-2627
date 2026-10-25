@@ -7,24 +7,45 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - name: Prova directa a l'API
+      - name: Proves d'accés a l'API des del runner
         run: |
-          curl -sS -o /tmp/r.txt -w 'STATUS_DIRECT=%{http_code}\n' \
-            -A "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36" \
-            -H "Accept: application/json" \
-            -H "Referer: https://www.fcf.cat/" \
-            "https://www.fcf.cat/api/competition/grupos?competicioId=58161949"
-          head -c 250 /tmp/r.txt || true
-          echo
-      - name: Prova via r.jina.ai
-        run: |
-          curl -sS -o /tmp/r2.txt -w 'STATUS_JINA=%{http_code}\n' \
-            "https://r.jina.ai/https://www.fcf.cat/api/competition/grupos?competicioId=58161949"
-          head -c 400 /tmp/r2.txt || true
-          echo
-      - name: Prova via allorigins
-        run: |
-          curl -sS -o /tmp/r3.txt -w 'STATUS_ALLORIGINS=%{http_code}\n' --max-time 60 \
-            "https://api.allorigins.win/raw?url=https%3A%2F%2Fwww.fcf.cat%2Fapi%2Fcompetition%2Fgrupos%3FcompeticioId%3D58161949"
-          head -c 250 /tmp/r3.txt || true
-          echo
+          API="https://www.fcf.cat/api/competition/grupos?competicioId=58161949"
+          CHROME_UA="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
+
+          echo "--- A: Chrome UA, capçaleres del 403 ---"
+          curl -s -D - -o /dev/null --max-time 20 -A "$CHROME_UA" -H "Accept: application/json" -H "Referer: https://www.fcf.cat/" "$API" | head -20
+
+          echo "--- B: sense UA (curl per defecte) ---"
+          curl -s -o /dev/null -w "code=%{http_code}\n" --max-time 20 "$API"
+
+          echo "--- C: UA Googlebot ---"
+          curl -s -o /dev/null -w "code=%{http_code}\n" --max-time 20 -A "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)" "$API"
+
+          echo "--- D: emulació completa de navegador ---"
+          curl -s -o /dev/null -w "code=%{http_code}\n" --max-time 20 -A "$CHROME_UA" \
+            -H "Accept: application/json, text/plain, */*" \
+            -H "Accept-Language: ca,es;q=0.9" \
+            -H "Accept-Encoding: gzip, deflate, br" \
+            -H "Origin: https://www.fcf.cat" \
+            -H "Referer: https://www.fcf.cat/es/competicio" \
+            -H "sec-ch-ua: \"Not/A)Brand\";v=\"8\", \"Chromium\";v=\"126\", \"Google Chrome\";v=\"126\"" \
+            -H "sec-ch-ua-mobile: ?0" \
+            -H "sec-ch-ua-platform: \"Linux\"" \
+            -H "Sec-Fetch-Dest: empty" -H "Sec-Fetch-Mode: cors" -H "Sec-Fetch-Site: same-origin" \
+            -H "X-Requested-With: XMLHttpRequest" \
+            "$API"
+
+          echo "--- E: sense www (segueix redirect) ---"
+          curl -s -o /dev/null -w "code=%{http_code}\n" --max-time 20 -A "$CHROME_UA" -L "https://fcf.cat/api/competition/grupos?competicioId=58161949"
+
+          echo "--- F: barra final ---"
+          curl -s -o /dev/null -w "code=%{http_code}\n" --max-time 20 -A "$CHROME_UA" "https://www.fcf.cat/api/competition/grupos/?competicioId=58161949"
+
+          echo "--- G: HTML de control ---"
+          curl -s -o /dev/null -w "code=%{http_code}\n" --max-time 20 -A "$CHROME_UA" "https://www.fcf.cat/es/competicio?temporadaId=22&disciplinaId=19308233&competicioId=58161949&grupId=58161973&tab=gols"
+
+          echo "--- H: via thingproxy ---"
+          curl -s -o /dev/null -w "code=%{http_code}\n" --max-time 30 "https://thingproxy.freeboard.io/fetch/$API"
+
+          echo "--- I: via crbp / cors.eu.org ---"
+          curl -s -o /dev/null -w "code=%{http_code}\n" --max-time 30 "https://cors.eu.org/$API"
