@@ -1,0 +1,284 @@
+:root {
+  --fcf-red: #c8102e;
+  --fcf-dark: #7a0c1f;
+  --ink: #17181c;
+  --ink-soft: #55575f;
+  --paper: #ffffff;
+  --bg: #f4f5f7;
+  --line: #e4e6ea;
+  --accent: #c8102e;
+  --radius: 10px;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+    sans-serif;
+  color: var(--ink);
+  background-color: var(--bg);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--bg);
+}
+
+a {
+  color: var(--accent);
+}
+
+.app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ---------- Capçalera ---------- */
+
+.site-header {
+  background: linear-gradient(135deg, var(--fcf-dark), var(--fcf-red));
+  color: #fff;
+  padding: 1.5rem 1rem 1.25rem;
+}
+
+.site-header__inner {
+  max-width: 1080px;
+  margin: 0 auto;
+}
+
+.site-title {
+  margin: 0;
+  font-size: clamp(1.6rem, 4.5vw, 2.4rem);
+  letter-spacing: 0.01em;
+}
+
+.site-subtitle {
+  margin: 0.25rem 0 0;
+  font-size: 0.95rem;
+  opacity: 0.92;
+}
+
+.update-banner {
+  margin: 0.75rem 0 0;
+  font-size: 0.85rem;
+  opacity: 0.92;
+}
+
+.update-banner a {
+  color: #fff;
+  text-decoration: underline;
+}
+
+/* ---------- Pestanyes de grups ---------- */
+
+.group-tabs {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 10px 12px;
+  background: #fff;
+  border-bottom: 1px solid var(--line);
+  max-width: 100%;
+}
+
+.tab {
+  flex: 0 0 auto;
+  padding: 7px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--ink-soft);
+  text-decoration: none;
+  font-size: 0.88rem;
+  white-space: nowrap;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.tab:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.tab--active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+
+/* ---------- Contingut ---------- */
+
+.site-main {
+  flex: 1;
+  width: 100%;
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 1.25rem 1rem 2rem;
+}
+
+.page h1 {
+  font-size: 1.4rem;
+  margin: 0 0 0.35rem;
+}
+
+.page-note {
+  color: var(--ink-soft);
+  font-size: 0.92rem;
+  margin: 0.35rem 0 1rem;
+  line-height: 1.5;
+}
+
+code {
+  background: #eceef1;
+  border-radius: 5px;
+  padding: 0.1em 0.35em;
+  font-size: 0.85em;
+}
+
+/* ---------- Taula ---------- */
+
+.table-scroll {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--paper);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.scorer-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+}
+
+.scorer-table th,
+.scorer-table td {
+  padding: 0.6rem 0.75rem;
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+  vertical-align: middle;
+}
+
+.scorer-table th {
+  background: #fafbfc;
+  color: var(--ink-soft);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.scorer-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.scorer-table tbody tr:nth-child(even) {
+  background: #fafbfc;
+}
+
+.scorer-table td.col-num,
+.scorer-table th.col-num {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.scorer-table td.col-pos {
+  width: 3.2rem;
+  text-align: center;
+  color: var(--ink-soft);
+}
+
+.scorer-table .player-name {
+  font-weight: 600;
+}
+
+.scorer-table .goals {
+  font-weight: 700;
+  color: var(--fcf-dark);
+}
+
+.grup-tag {
+  white-space: nowrap;
+  color: var(--ink-soft);
+  font-size: 0.85rem;
+}
+
+.team-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.team-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 220px;
+}
+
+.escut {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  object-fit: contain;
+  background: #fff;
+  border: 1px solid var(--line);
+  flex: 0 0 auto;
+}
+
+.escut--placeholder {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(135deg, var(--fcf-dark), var(--fcf-red));
+  text-transform: uppercase;
+}
+
+.empty-state {
+  padding: 2rem 1rem;
+  text-align: center;
+  color: var(--ink-soft);
+  background: var(--paper);
+  border: 1px dashed var(--line);
+  border-radius: var(--radius);
+}
+
+/* ---------- Peu ---------- */
+
+.site-footer {
+  border-top: 1px solid var(--line);
+  background: #fff;
+  padding: 1rem;
+  text-align: center;
+  color: var(--ink-soft);
+  font-size: 0.85rem;
+}
+
+.site-footer p {
+  margin: 0;
+}
+
+@media (max-width: 640px) {
+  .scorer-table .team-name {
+    max-width: 130px;
+  }
+
+  .scorer-table th,
+  .scorer-table td {
+    padding: 0.5rem 0.45rem;
+    font-size: 0.85rem;
+  }
+
+  .grup-tag {
+    display: none;
+  }
+}
