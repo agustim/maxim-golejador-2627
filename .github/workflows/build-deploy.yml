@@ -44,9 +44,21 @@ jobs:
         env:
           BASE_PATH: /maxim-golejador-2627/
 
-      - name: Guardar snapshot de dades (si ha canviat)
+      - name: Guardar snapshot de dades (només si les dades reals han canviat)
         run: |
-          if [ -n "$(git status --porcelain -- src/data/scorers.json)" ]; then
+          # El camp `actualitzat` canvia a cada execució; es comparen les dades
+          # sense aquest camp per evitar commits i runs en cadena infinits.
+          if node -e '
+            const fs = require("fs");
+            const cp = require("child_process");
+            const cur = JSON.parse(fs.readFileSync("src/data/scorers.json", "utf8"));
+            const prev = JSON.parse(cp.execSync("git show HEAD:src/data/scorers.json", "utf8"));
+            delete cur.actualitzat;
+            delete prev.actualitzat;
+            process.exit(JSON.stringify(cur) === JSON.stringify(prev) ? 0 : 1);
+          '; then
+            echo "Sense canvis a les dades; no es commiteja."
+          else
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git add src/data/scorers.json
