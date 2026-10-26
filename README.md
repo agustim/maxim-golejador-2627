@@ -82,7 +82,7 @@ xarxa; el workflow el regenera a cada build sense cometre'l.
 
 ## Desplegament (GitHub Pages)
 
-El workflow [`.github/workflows/build-deploy.yml`](.github/workflows/build-deploy.yml):
+El workflow [`.github/workflows/publish.yml`](.github/workflows/publish.yml):
 
 - s'executa **dues vegades al dia (05:00 i 17:00 UTC)** per donar marge a
   l'agendador de GitHub, que de tant en tant endarrereix o salta alguna
@@ -91,6 +91,9 @@ El workflow [`.github/workflows/build-deploy.yml`](.github/workflows/build-deplo
 - per comprovar si hi ha hagut execucions programades:
   `gh run list --workflow "Generar i publicar llistats"` (les d'esdeveniment `schedule`
   només apareixen si l'agendador les ha generat).
+- **Si l'agendador no dispara cap cron** (passa de tant en tant en repos nous): pots
+  llançar el workflow manualment des de la pestanya Actions ("Run workflow") o bé
+  actualitzar les dades des del teu ordinador amb `npm run fetch && git push`.
 
 Perquè funcioni cal:
 
