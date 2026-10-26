@@ -84,8 +84,13 @@ xarxa; el workflow el regenera a cada build sense cometre'l.
 
 El workflow [`.github/workflows/build-deploy.yml`](.github/workflows/build-deploy.yml):
 
-- s'executa **cada dia a les 05:00 UTC** (06:00 a l'hivern / 07:00 a l'estiu a Barcelona),
+- s'executa **dues vegades al dia (05:00 i 17:00 UTC)** per donar marge a
+  l'agendador de GitHub, que de tant en tant endarrereix o salta alguna
+  execució programada (és un comportament conegut de GitHub, no del workflow).
 - també es pot llançar manualment (Run workflow) i s'executa en cada `push` a `main`.
+- per comprovar si hi ha hagut execucions programades:
+  `gh run list --workflow "Generar i publicar llistats"` (les d'esdeveniment `schedule`
+  només apareixen si l'agendador les ha generat).
 
 Perquè funcioni cal:
 
