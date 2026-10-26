@@ -2,8 +2,12 @@ name: Generar i publicar llistats
 
 on:
   schedule:
-    # Cada dia a les 05:00 UTC (06:00 a l'hivern / 07:00 a l'estiu a Barcelona)
+    # Dues execucions diàries (05:00 i 17:00 UTC) perquè l'agendador de GitHub
+    # de vegades endarrereix o salta fires en repos nous; així hi ha més marge.
     - cron: '0 5 * * *'
+    - cron: '0 17 * * *'
+    # PROVA temporal: per confirmar que l'esdeveniment schedule es genera.
+    - cron: '*/10 * * * *'
   workflow_dispatch:
   push:
     branches: [main]
