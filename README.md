@@ -16,6 +16,9 @@ l'API de la FCF, genera el site i el desplega.
   selecció es reflecteix a l’URL (`#/?grups=8,9`) i es pot compartir.
 - **Rànquing combinat**: els golejadors dels grups seleccionats, ordenats per gols,
   amb la columna «Grup» per saber d'on surt cada jugador.
+- **Ordenació per columnes**: clic a qualsevol capçalera (Jugador, Equip, Grup, Gols,
+  Partits, Gols/partit) per ordenar la taula de més a menys o a la inversa; un clic més
+  inverteix la direcció.
 - Botons ràpids **Tots** i **Cap** per seleccionar-ho tot o res.
 - Per golejador: posició, nom, equip (amb escut), gols (amb indicació de penals), partits
   jugats i gols per partit.

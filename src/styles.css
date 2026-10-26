@@ -185,6 +185,30 @@ code {
   white-space: nowrap;
 }
 
+.th-boto {
+  font: inherit;
+  text-transform: inherit;
+  letter-spacing: inherit;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  color: inherit;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.th-boto:hover {
+  color: var(--accent);
+}
+
+.th-boto--actiu {
+  color: var(--fcf-dark);
+  font-weight: 700;
+}
+
 .scorer-table tbody tr:last-child td {
   border-bottom: none;
 }
