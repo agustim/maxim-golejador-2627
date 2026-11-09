@@ -108,11 +108,15 @@ La web es publica a `https://<usuari>.github.io/maxim-golejador-2627/`.
 ## Font de dades i limitacions
 
 - **Font**: API interna de `https://www.fcf.cat` (`/api/competition/goleadores?grupId=…&temporada=22`,
-  `/api/competition/equipos?grupId=…`). No és una API documentada, pot canviar.
-- **403 des de centres de dades**: CloudFront de la FCF retorna «Error from cloudfront»
-  quan les peticions venen d'IPs de centres de dades (com les de GitHub Actions), mentre
-  que des de connexions residencials (la teva) funciona. El fetcher intenta primer la via
-  directa i després un proxy públic (r.jina.ai); si tot falla, fa servir l'últim snapshot i
+  `/api/competition/equipos?grupId=…`, `/api/competition/grupos?competicioId=…`). No és una API
+  documentada, pot canviar.
+- **403 d'CloudFront («Request blocked»)**: l'origen de la FCF denega amb un 403 sec les
+  peticions que no semblen una crida de navegador. Cal enviar els encapçalaments
+  `Sec-Fetch-*` i `Origin` **en conjunt**; si en falta algun, la resposta és 403 fins i
+  tot quan l'API és accessible. El fetcher ja envia exactament aquests encapçalaments (els
+  mateixos que el client web), de manera que funciona des de qualsevol IP, incloses les de
+  centres de dades de GitHub Actions. Com a xarxa de seguretat, si una crida falla es prova
+  un proxy públic (r.jina.ai) i, si tot falla, es conserven les dades de l'últim snapshot i
   l'acció **mai no falla**. Per forçar l'actualització manual: executa `npm run fetch` al
   teu ordinador i fes `git push` (el push publica automàticament el build amb les dades
   noves).

@@ -95,6 +95,18 @@ describe('combinarGrups', () => {
     expect(combinat.map((c) => c.posicio)).toEqual([1, 2, 3]);
   });
 
+  it('en empat de gols ordena primer qui té menys gols de penal', () => {
+    const grups = [
+      grup(8, [
+        { jugador: 'Dos penals', gols: 14, penals: 2, partits: 10, golsPerPartit: 1.4 },
+        { jugador: 'Cap penal', gols: 14, penals: 0, partits: 10, golsPerPartit: 1.4 },
+        { jugador: 'Un penal', gols: 14, penals: 1, partits: 10, golsPerPartit: 1.4 },
+      ]),
+    ];
+    const combinat = combinarGrups(grups);
+    expect(combinat.map((c) => c.penals)).toEqual([0, 1, 2]);
+  });
+
   it('els jugadors del mateix grup mantenen el grup d’origen', () => {
     const grups = [grup(8, [{ jugador: 'X', gols: 1, partits: 1, golsPerPartit: 1 }])];
     const combinat = combinarGrups(grups);

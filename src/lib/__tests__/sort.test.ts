@@ -50,6 +50,19 @@ describe('ordenarGolejadors', () => {
     expect(resultat[1].jugador).toBe('GARCIA, BIEL');
   });
 
+  it('desempata els mateixos gols amb menys penals primer (fix, no s’inverteix)', () => {
+    const empatats: Golejador[] = [
+      jugador({ jugador: 'A', gols: 14, penals: 2 }),
+      jugador({ jugador: 'B', gols: 14, penals: 0 }),
+      jugador({ jugador: 'C', gols: 14, penals: 1 }),
+    ];
+    const desc = ordenarGolejadors(empatats, { columna: 'gols', direccio: 'desc' });
+    expect(desc.map((g) => g.penals)).toEqual([0, 1, 2]);
+    const asc = ordenarGolejadors(empatats, { columna: 'gols', direccio: 'asc' });
+    // El desempat tampoc s'inverteix en ordre ascendent: menys penals primer.
+    expect(asc.map((g) => g.penals)).toEqual([0, 1, 2]);
+  });
+
   it('ordena per nom ascendent amb col·lació catalana', () => {
     const estat: EstatOrdenacio = { columna: 'jugador', direccio: 'asc' };
     const resultat = ordenarGolejadors(dades, estat);

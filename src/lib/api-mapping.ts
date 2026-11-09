@@ -82,9 +82,13 @@ export function mapGolejadors(
     const gols = Number(registre.goles) || 0;
     const partits = Number(registre.total) || 0;
     const penals = Number(registre.penalti) || 0;
+    // L'API de la FCF pot tornar un registre amb el nom buit (per exemple, un
+    // jugador amb gols però sense nom a la base de dades). Per no mostrar una
+    // cel·la en blanc, es cau a la llicència i, en últim cas, a un marcador.
+    const nom = (registre.nombre_jugador ?? '').trim();
     return {
       posicio: index + 1,
-      jugador: (registre.nombre_jugador ?? '').trim(),
+      jugador: nom || (registre.licencia ?? '').trim() || '(sense nom)',
       equip: nomEquip(registre.codequipo, equipNoms, 'Equip desconegut'),
       codequipo: registre.codequipo,
       gols,

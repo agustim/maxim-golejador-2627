@@ -1,10 +1,12 @@
 /**
  * Client per a l'API interna de www.fcf.cat (Next.js).
  *
- * PROBLEMA CONEGUT: des d'IPs de centres de dades (GitHub Actions, proxies
- * públics), CloudFront retorna 403 ("Error from cloudfront") perquè el seu
- * edge no arriba a l'origen de l'API. Des d'IPs residencials europees
- * (com la teva) l'API respon correctament.
+ * PROBLEMA CONEGUT: CloudFront/WAF davant de l'origen retorna 403
+ * («Request blocked. We can't connect to the server…») per a les peticions
+ * que no inclouen els encapçalaments de navegador `Sec-Fetch-*` i `Origin` en
+ * conjunt. No és un problema d'IPs de centres de dades: passa des de qualsevol
+ * origen si falten aquestes capçaleres. Per això FCF_HEADERS les envia tal com
+ * les envia el client web de la FCF.
  *
  * ESTRATÈGIA: molt pocs reintents (fallada ràpida) i, si tot falla, la crida
  * es marca com a fallida i el generador conserva les dades de l'últim snapshot.
@@ -20,6 +22,15 @@ export const FCF_HEADERS = {
   Accept: 'application/json, text/plain, */*',
   'Accept-Language': 'ca,es;q=0.9',
   Referer: `${BASE_URL}/`,
+  // CloudFront/WAF davant l'origen denega amb un 403 sec («Request blocked.
+  // We can't connect to the server...») les peticions que no semblen una crida
+  // de navegador. Cal enviar els encapçalaments Sec-Fetch-* i Origin en
+  // conjunt; si en falta algun, l'API respon 403 fins i tot quan és
+  // accessible. Mantenim exactament el que envia el client web de la FCF.
+  Origin: `${BASE_URL}`,
+  'Sec-Fetch-Mode': 'cors',
+  'Sec-Fetch-Site': 'same-origin',
+  'Sec-Fetch-Dest': 'empty',
 } as const;
 
 /** Temps límit de cada intent (ms). Els errors arriben ràpid; no cal esperar gaire. */

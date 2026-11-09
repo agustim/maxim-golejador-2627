@@ -39,12 +39,14 @@ export function assignarPosicions(
 
 /**
  * Fusiona els golejadors de tots els grups en un únic rànquing combinat,
- * ordenat per gols (desc), gols/partit (desc) i nom. Les posicions són seqüencials.
+ * ordenat per gols (desc), menys gols de penal (asc) i gols/partit (desc),
+ * i nom. Les posicions són seqüencials.
  */
 export function combinarGrups(grups: GrupData[]): Golejador[] {
   const tots = gruposAplanats(grups).map((entry) => ({ ...entry, posicio: 0 }));
   tots.sort((a, b) => {
     if (b.gols !== a.gols) return b.gols - a.gols;
+    if (a.penals !== b.penals) return a.penals - b.penals;
     const gpa = a.golsPerPartit ?? -1;
     const gpb = b.golsPerPartit ?? -1;
     if (gpb !== gpa) return gpb - gpa;

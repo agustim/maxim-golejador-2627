@@ -43,5 +43,15 @@ function comparar(a: Golejador, b: Golejador, columna: ColumnaOrdenacio): number
  */
 export function ordenarGolejadors(rows: Golejador[], estat: EstatOrdenacio): Golejador[] {
   const factor = estat.direccio === 'asc' ? 1 : -1;
-  return [...rows].sort((a, b) => factor * comparar(a, b, estat.columna));
+  return [...rows].sort((a, b) => {
+    const cmp = factor * comparar(a, b, estat.columna);
+    if (cmp !== 0) return cmp;
+    // En empat de gols es desempata per MENYS gols de penal primer.
+    // Aquest desempat és fix (no s'inverteix amb la direcció de l'ordenació):
+    // qui ha marcat els mateixos gols amb menys penals queda per davant.
+    if (estat.columna === 'gols') {
+      return a.penals - b.penals;
+    }
+    return 0;
+  });
 }
